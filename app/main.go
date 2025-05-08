@@ -21,6 +21,9 @@ func main() {
 		switch command {
 		case "echo":
 			cmds.Echo(args)
+		case "type":
+			exe := cmds.NewCmd("type")
+			exe.Run(args)
 		case "exit":
 			os.Exit(0)
 		default:

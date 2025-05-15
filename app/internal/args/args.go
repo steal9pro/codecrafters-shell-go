@@ -16,17 +16,23 @@ func ParseArgs() (string, []string) {
 	}
 	var currentArg strings.Builder
 	inQuotes := false
+	inDoubleQuotes := false
 
 	// Split the input into args, handling quotes properly
 	for i := 0; i < len(argsStr); i++ {
 		ch := argsStr[i]
 
-		if ch == '\'' {
+		if ch == '"' {
+			inDoubleQuotes = !inDoubleQuotes
+			continue
+		}
+
+		if ch == '\'' && !inDoubleQuotes {
 			inQuotes = !inQuotes
 			continue
 		}
 
-		if !inQuotes && ch == ' ' {
+		if !inQuotes && !inDoubleQuotes && ch == ' ' {
 			// If we have accumulated characters and hit a space outside quotes
 			if currentArg.Len() > 0 {
 				args = append(args, currentArg.String())

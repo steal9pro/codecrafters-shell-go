@@ -1,22 +1,18 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/codecrafters-io/shell-starter-go/app/cmds"
+	"github.com/codecrafters-io/shell-starter-go/app/internal/args"
 )
 
 func main() {
 	for {
 		fmt.Fprint(os.Stdout, "$ ")
 
-		input, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-		rawCmd := strings.Split(input[:len(input)-1], " ")
-		command := rawCmd[0]
-		args := rawCmd[1:]
+		command, args := args.ParseArgs()
 
 		repl := cmds.InitRepl()
 

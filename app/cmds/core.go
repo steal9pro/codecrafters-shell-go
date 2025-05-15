@@ -59,6 +59,13 @@ func (r *Repl) Pwd() {
 	fmt.Println(absPath)
 }
 
+func (r *Repl) Cd(path string) {
+	err := os.Chdir(path)
+	if err != nil {
+		fmt.Printf("%s: %s: %s \n", "cd", path, "No such file or directory")
+	}
+}
+
 func NewCmd(repl *Repl, name string) Cmd {
 	switch name {
 	case "type":

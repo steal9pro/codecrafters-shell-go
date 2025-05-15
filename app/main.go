@@ -28,6 +28,8 @@ func main() {
 			exe.Run(args)
 		case "pwd":
 			repl.Pwd()
+		case "cd":
+			repl.Cd(args[0])
 		case "exit":
 			os.Exit(0)
 		default:

@@ -32,6 +32,14 @@ func ParseArgs() (string, []string) {
 			continue
 		}
 
+		if ch == '\\' && !inQuotes && !inDoubleQuotes {
+			i++
+			if i < len(argsStr) {
+				currentArg.WriteByte(argsStr[i])
+			}
+			continue
+		}
+
 		if !inQuotes && !inDoubleQuotes && ch == ' ' {
 			// If we have accumulated characters and hit a space outside quotes
 			if currentArg.Len() > 0 {

@@ -22,6 +22,15 @@ func ParseArgs() (string, []string) {
 	for i := 0; i < len(argsStr); i++ {
 		ch := argsStr[i]
 
+		if ch == '\\' && inQuotes {
+			currentArg.WriteByte(argsStr[i])
+			i++
+			if i < len(argsStr) {
+				currentArg.WriteByte(argsStr[i])
+			}
+			continue
+		}
+
 		if ch == '"' {
 			inDoubleQuotes = !inDoubleQuotes
 			continue

@@ -60,6 +60,11 @@ func (r *Repl) Pwd() {
 }
 
 func (r *Repl) Cd(path string) {
+	if strings.Contains(path, "~") {
+		homePath := os.Getenv("HOME")
+		path = strings.Replace(path, "~", homePath, 1)
+	}
+
 	err := os.Chdir(path)
 	if err != nil {
 		fmt.Printf("%s: %s: %s \n", "cd", path, "No such file or directory")

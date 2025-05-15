@@ -2,43 +2,20 @@ package cmds
 
 import (
 	"fmt"
-	"os"
 	"slices"
-	"strings"
 )
 
 type Type struct {
-	osCmds        map[string]string
+	repl          *Repl
 	availableCmds []string
 }
 
-func InitType() *Type {
+func InitType(repl *Repl) *Type {
 	availableCmds := []string{"exit", "type", "echo"}
 
-	pathEnv := os.Getenv("PATH")
-	pathArr := strings.Split(pathEnv, ":")
-
-	osCmds := make(map[string]string, 0)
-	for _, dirPath := range pathArr {
-		files, err := os.ReadDir(dirPath)
-		if err != nil {
-			fmt.Errorf("error during reading dir: %v \n", err.Error())
-			continue
-		}
-
-		for _, entry := range files {
-			name := entry.Name()
-			_, ok := osCmds[name]
-			if ok {
-				continue
-			}
-			osCmds[name] = fmt.Sprintf("%s/%s", dirPath, name)
-		}
-	}
-
 	return &Type{
+		repl:          repl,
 		availableCmds: availableCmds,
-		osCmds:        osCmds,
 	}
 }
 
@@ -50,12 +27,12 @@ func (t *Type) Run(args []string) {
 		return
 	}
 
-	val, ok := t.osCmds[searchableBin]
+	path, ok := t.repl.CmdExist(searchableBin)
 
 	if !ok {
 		fmt.Printf("%v: not found \n", searchableBin)
 		return
 	}
 
-	fmt.Printf("%s is %s \n", searchableBin, val)
+	fmt.Printf("%s is %s \n", searchableBin, path)
 }

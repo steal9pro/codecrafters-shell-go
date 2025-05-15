@@ -18,16 +18,23 @@ func main() {
 		command := rawCmd[0]
 		args := rawCmd[1:]
 
+		repl := cmds.InitRepl()
+
 		switch command {
 		case "echo":
 			cmds.Echo(args)
 		case "type":
-			exe := cmds.NewCmd("type")
+			exe := cmds.NewCmd(repl, "type")
 			exe.Run(args)
 		case "exit":
 			os.Exit(0)
 		default:
-			fmt.Println(command + ": command not found")
+			_, ok := repl.CmdExist(command)
+			if !ok {
+				fmt.Println(command + ": command not found")
+				continue
+			}
+			cmds.RunOSCmd(command, args)
 		}
 	}
 }

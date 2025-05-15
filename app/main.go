@@ -26,6 +26,8 @@ func main() {
 		case "type":
 			exe := cmds.NewCmd(repl, "type")
 			exe.Run(args)
+		case "pwd":
+			repl.Pwd()
 		case "exit":
 			os.Exit(0)
 		default:

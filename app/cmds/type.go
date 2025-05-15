@@ -11,7 +11,7 @@ type Type struct {
 }
 
 func InitType(repl *Repl) *Type {
-	availableCmds := []string{"exit", "type", "echo"}
+	availableCmds := []string{"exit", "type", "echo", "pwd"}
 
 	return &Type{
 		repl:          repl,

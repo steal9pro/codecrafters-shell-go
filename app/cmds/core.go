@@ -49,6 +49,16 @@ func (r *Repl) CmdExist(cmdName string) (string, bool) {
 	return path, ok
 }
 
+func (r *Repl) Pwd() {
+	absPath, err := os.Getwd()
+	if err != nil {
+		log.Printf("error during running: %v", err.Error())
+		return
+	}
+
+	fmt.Println(absPath)
+}
+
 func NewCmd(repl *Repl, name string) Cmd {
 	switch name {
 	case "type":

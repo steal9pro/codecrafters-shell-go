@@ -10,34 +10,31 @@ import (
 var preservedSymbols = []byte{'"', '$', '\\'}
 
 func ParseArgs() (string, []string) {
-	input, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-	command, argsStr, _ := strings.Cut(input[:len(input)-1], " ")
-
 	args := make([]string, 0)
-	if len(argsStr) == 0 {
-		return command, args
-	}
-	var currentArg strings.Builder
+	input, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+
 	inQuotes := false
 	inDoubleQuotes := false
 	preserveBackslash := false
 
+	var currentArg strings.Builder
+
 	// Split the input into args, handling quotes properly
-	for i := 0; i < len(argsStr); i++ {
-		ch := argsStr[i]
+	for i := 0; i < len(input); i++ {
+		ch := input[i]
 
 		if slices.Contains(preservedSymbols, ch) && preserveBackslash {
-			currentArg.WriteByte(argsStr[i])
+			currentArg.WriteByte(input[i])
 			preserveBackslash = false
 			continue
 		}
 
 		if ch == '\\' {
 			if inQuotes {
-				currentArg.WriteByte(argsStr[i])
+				currentArg.WriteByte(input[i])
 				i++
-				if i < len(argsStr) {
-					currentArg.WriteByte(argsStr[i])
+				if i < len(input) {
+					currentArg.WriteByte(input[i])
 				}
 				continue
 			}
@@ -60,8 +57,8 @@ func ParseArgs() (string, []string) {
 
 		if ch == '\\' && !inQuotes && !inDoubleQuotes {
 			i++
-			if i < len(argsStr) {
-				currentArg.WriteByte(argsStr[i])
+			if i < len(input) {
+				currentArg.WriteByte(input[i])
 			}
 			continue
 		}
@@ -79,13 +76,18 @@ func ParseArgs() (string, []string) {
 			currentArg.WriteByte('\\')
 			preserveBackslash = false
 		}
+
 		currentArg.WriteByte(ch)
 	}
 
 	// Add the last argument if there is one
 	if currentArg.Len() > 0 {
-		args = append(args, currentArg.String())
+		trimmedArg := strings.TrimRight(currentArg.String(), "\n")
+		args = append(args, trimmedArg)
 	}
 
-	return command, args
+	command := args[0]
+	cmdArgs := args[1:]
+
+	return command, cmdArgs
 }

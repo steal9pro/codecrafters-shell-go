@@ -3,8 +3,11 @@ package args
 import (
 	"bufio"
 	"os"
+	"slices"
 	"strings"
 )
+
+var preservedSymbols = []byte{'"', '$', '\\'}
 
 func ParseArgs() (string, []string) {
 	input, _ := bufio.NewReader(os.Stdin).ReadString('\n')
@@ -17,21 +20,35 @@ func ParseArgs() (string, []string) {
 	var currentArg strings.Builder
 	inQuotes := false
 	inDoubleQuotes := false
+	preserveBackslash := false
 
 	// Split the input into args, handling quotes properly
 	for i := 0; i < len(argsStr); i++ {
 		ch := argsStr[i]
 
-		if ch == '\\' && inQuotes {
+		if slices.Contains(preservedSymbols, ch) && preserveBackslash {
 			currentArg.WriteByte(argsStr[i])
-			i++
-			if i < len(argsStr) {
-				currentArg.WriteByte(argsStr[i])
-			}
+			preserveBackslash = false
 			continue
 		}
 
-		if ch == '"' {
+		if ch == '\\' {
+			if inQuotes {
+				currentArg.WriteByte(argsStr[i])
+				i++
+				if i < len(argsStr) {
+					currentArg.WriteByte(argsStr[i])
+				}
+				continue
+			}
+
+			if inDoubleQuotes && !preserveBackslash {
+				preserveBackslash = true
+				continue
+			}
+		}
+
+		if ch == '"' && !inQuotes {
 			inDoubleQuotes = !inDoubleQuotes
 			continue
 		}
@@ -58,6 +75,10 @@ func ParseArgs() (string, []string) {
 			continue
 		}
 
+		if preserveBackslash {
+			currentArg.WriteByte('\\')
+			preserveBackslash = false
+		}
 		currentArg.WriteByte(ch)
 	}
 

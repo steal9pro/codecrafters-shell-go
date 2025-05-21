@@ -23,16 +23,16 @@ func (t *Type) Run(args []string) {
 	searchableBin := args[0]
 	has := slices.Contains(t.availableCmds, searchableBin)
 	if has {
-		fmt.Printf("%v is a shell builtin \n", searchableBin)
+		t.repl.Print(fmt.Sprintf("%v is a shell builtin", searchableBin))
 		return
 	}
 
 	path, ok := t.repl.CmdExist(searchableBin)
 
 	if !ok {
-		fmt.Printf("%v: not found \n", searchableBin)
+		t.repl.Print(fmt.Sprintf("%v: not found", searchableBin))
 		return
 	}
 
-	fmt.Printf("%s is %s \n", searchableBin, path)
+	t.repl.Print(fmt.Sprintf("%s is %s", searchableBin, path))
 }

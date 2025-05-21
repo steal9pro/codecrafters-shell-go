@@ -6,6 +6,7 @@ import (
 
 	"github.com/codecrafters-io/shell-starter-go/app/cmds"
 	"github.com/codecrafters-io/shell-starter-go/app/internal/args"
+	"github.com/codecrafters-io/shell-starter-go/app/internal/output"
 )
 
 func main() {
@@ -15,10 +16,15 @@ func main() {
 		command, args := args.ParseArgs()
 
 		repl := cmds.InitRepl()
+		present, fileName := output.ParseRedirectIfPresent(args)
+		if present {
+			repl.RedirectOutputToFile(fileName)
+			args = args[0 : len(args)-2]
+		}
 
 		switch command {
 		case "echo":
-			cmds.Echo(args)
+			cmds.Echo(repl, args)
 		case "type":
 			exe := cmds.NewCmd(repl, "type")
 			exe.Run(args)
@@ -31,10 +37,10 @@ func main() {
 		default:
 			_, ok := repl.CmdExist(command)
 			if !ok {
-				fmt.Println(command + ": command not found")
+				repl.PrintError(fmt.Sprintf(command + ": command not found"))
 				continue
 			}
-			cmds.RunOSCmd(command, args)
+			cmds.RunOSCmd(repl, command, args)
 		}
 	}
 }

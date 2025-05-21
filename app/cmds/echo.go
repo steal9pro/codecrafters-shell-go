@@ -5,6 +5,6 @@ import (
 	"strings"
 )
 
-func Echo(msg []string) {
-	fmt.Println(strings.Join(msg, " "))
+func Echo(repl *Repl, msg []string) {
+	repl.Print(fmt.Sprintf(strings.Join(msg, " ")))
 }

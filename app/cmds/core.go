@@ -2,10 +2,11 @@ package cmds
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/codecrafters-io/shell-starter-go/app/internal/output"
 )
 
 type Cmd interface {
@@ -13,7 +14,9 @@ type Cmd interface {
 }
 
 type Repl struct {
-	osCmds map[string]string
+	osCmds      map[string]string
+	output      output.Output
+	errorOutput output.Output
 }
 
 func InitRepl() *Repl {
@@ -39,8 +42,22 @@ func InitRepl() *Repl {
 	}
 
 	return &Repl{
-		osCmds: osCmds,
+		osCmds:      osCmds,
+		output:      output.NewOutput(),
+		errorOutput: output.NewOutput(),
 	}
+}
+
+func (r *Repl) RedirectOutputToFile(fileName string) {
+	r.output = output.NewFileOutput(fileName)
+}
+
+func (r *Repl) PrintError(msg string) {
+	r.errorOutput.PrintError(fmt.Sprintf("%s", msg))
+}
+
+func (r *Repl) Print(msg string) {
+	r.output.Print(msg)
 }
 
 func (r *Repl) CmdExist(cmdName string) (string, bool) {
@@ -52,11 +69,11 @@ func (r *Repl) CmdExist(cmdName string) (string, bool) {
 func (r *Repl) Pwd() {
 	absPath, err := os.Getwd()
 	if err != nil {
-		log.Printf("error during running: %v", err.Error())
+		r.PrintError(fmt.Sprintf("error during running: %v", err.Error()))
 		return
 	}
 
-	fmt.Println(absPath)
+	r.Print(absPath)
 }
 
 func (r *Repl) Cd(path string) {
@@ -67,7 +84,7 @@ func (r *Repl) Cd(path string) {
 
 	err := os.Chdir(path)
 	if err != nil {
-		fmt.Printf("%s: %s: %s \n", "cd", path, "No such file or directory")
+		r.PrintError(fmt.Sprintf("%s: %s: %s", "cd", path, "No such file or directory"))
 	}
 }
 
@@ -79,12 +96,53 @@ func NewCmd(repl *Repl, name string) Cmd {
 	return nil
 }
 
-func RunOSCmd(name string, args []string) {
+func RunOSCmd(repl *Repl, name string, args []string) {
 	cmd := exec.Command(name, args...)
-	byteResp, err := cmd.Output()
+
+	// Create pipes for stdout and stderr
+	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Printf("error during running: %v", err.Error())
+		repl.PrintError(fmt.Sprintf("error creating stdout pipe: %v", err.Error()))
+		return
 	}
 
-	fmt.Printf("%s", string(byteResp))
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		repl.PrintError(fmt.Sprintf("error creating stderr pipe: %v", err.Error()))
+		return
+	}
+
+	// Start the command before reading from pipes
+	if err := cmd.Start(); err != nil {
+		repl.PrintError(fmt.Sprintf("error starting command: %v", err.Error()))
+		return
+	}
+
+	// Use goroutines to handle stdout and stderr streams
+	stdoutDone := make(chan bool)
+	stderrDone := make(chan bool)
+
+	go func() {
+		repl.output.WriteStream(stdoutPipe, false)
+		stdoutDone <- true
+	}()
+
+	go func() {
+		repl.errorOutput.WriteStream(stderrPipe, true)
+		stderrDone <- true
+	}()
+
+	// Wait for both streams to complete
+	<-stdoutDone
+	<-stderrDone
+
+	// Wait for the command to complete
+	if err := cmd.Wait(); err != nil {
+		if _, ok := err.(*exec.ExitError); ok {
+			// Command failed with non-zero exit code
+			// repl.PrintError(fmt.Sprintf("command exited with status %d", exitErr.ExitCode()))
+		} else {
+			repl.PrintError(fmt.Sprintf("error waiting for command: %v", err.Error()))
+		}
+	}
 }

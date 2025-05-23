@@ -48,8 +48,12 @@ func InitRepl() *Repl {
 	}
 }
 
-func (r *Repl) RedirectOutputToFile(fileName string) {
+func (r *Repl) RedirectStdOutToFile(fileName string) {
 	r.output = output.NewFileOutput(fileName)
+}
+
+func (r *Repl) RedirectStdErrToFile(fileName string) {
+	r.errorOutput = output.NewFileOutput(fileName)
 }
 
 func (r *Repl) PrintError(msg string) {

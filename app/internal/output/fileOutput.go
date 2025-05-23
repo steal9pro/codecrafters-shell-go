@@ -17,14 +17,6 @@ func (fo *FileOutput) Print(message string) {
 		fmt.Println("Error: file already closed")
 		return
 	}
-	if fo.file == nil {
-		var err error
-		fo.file, err = os.Create(fo.fileName)
-		if err != nil {
-			fmt.Println("Error opening file:", err)
-			return
-		}
-	}
 
 	_, err := fmt.Fprintln(fo.file, message)
 	if err != nil {
@@ -37,14 +29,6 @@ func (fo *FileOutput) PrintError(message string) {
 		fmt.Println("Error: file already closed")
 		return
 	}
-	if fo.file == nil {
-		var err error
-		fo.file, err = os.Create(fo.fileName)
-		if err != nil {
-			fmt.Println("Error opening file:", err)
-			return
-		}
-	}
 
 	_, err := fmt.Fprintln(fo.file, message)
 	if err != nil {
@@ -56,14 +40,6 @@ func (fo *FileOutput) WriteStream(r io.Reader, isError bool) {
 	if fo.closed {
 		fmt.Println("Error: file already closed")
 		return
-	}
-	if fo.file == nil {
-		var err error
-		fo.file, err = os.Create(fo.fileName)
-		if err != nil {
-			fmt.Println("Error opening file:", err)
-			return
-		}
 	}
 
 	buf := make([]byte, 32*1024)
@@ -86,13 +62,19 @@ func (fo *FileOutput) WriteStream(r io.Reader, isError bool) {
 	}
 }
 
-func NewFileOutput(filename string) Output {
+func NewFileOutput(filename string, append bool) Output {
+	var file *os.File
 	fo := &FileOutput{
 		fileName: filename,
 		closed:   false,
 	}
 
-	file, err := os.Create(fo.fileName)
+	flags := os.O_CREATE | os.O_WRONLY
+	if append {
+		flags = os.O_APPEND | os.O_CREATE | os.O_WRONLY
+	}
+
+	file, err := os.OpenFile(fo.fileName, flags, 0644)
 	if err != nil {
 		fmt.Println("Error opening file:", err)
 		return nil

@@ -16,15 +16,15 @@ func main() {
 		command, args := args.ParseArgs()
 
 		repl := cmds.InitRepl()
-		redirectStdout, redirectStdErr, appendStdout, fileName := output.ParseRedirectIfPresent(args)
+		redirectStdout, redirectStdErr, appendStdout, appendStdErr, fileName := output.ParseRedirectIfPresent(args)
 
 		if redirectStdout || appendStdout {
 			repl.RedirectStdOutToFile(fileName, appendStdout)
 			args = args[0 : len(args)-2]
 		}
 
-		if redirectStdErr {
-			repl.RedirectStdErrToFile(fileName, false)
+		if redirectStdErr || appendStdErr {
+			repl.RedirectStdErrToFile(fileName, appendStdErr)
 			args = args[0 : len(args)-2]
 		}
 

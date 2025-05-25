@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/codecrafters-io/shell-starter-go/app/internal/autocompletition"
 	"github.com/codecrafters-io/shell-starter-go/app/internal/output"
 )
 
@@ -17,13 +18,16 @@ type Repl struct {
 	osCmds      map[string]string
 	output      output.Output
 	errorOutput output.Output
+	trieNode    *autocompletition.TrieNode
 }
 
 func InitRepl() *Repl {
 	pathEnv := os.Getenv("PATH")
 	pathArr := strings.Split(pathEnv, ":")
 
-	osCmds := make(map[string]string, 0)
+	osCmds := make(map[string]string, 20)
+	osCmdsArray := make([]string, 20)
+
 	for _, dirPath := range pathArr {
 		files, err := os.ReadDir(dirPath)
 		if err != nil {
@@ -38,14 +42,26 @@ func InitRepl() *Repl {
 				continue
 			}
 			osCmds[name] = fmt.Sprintf("%s/%s", dirPath, name)
+			osCmdsArray = append(osCmdsArray, name)
 		}
 	}
+
+	// Initialize the TrieNode for autocomplete
+	rootNode := autocompletition.InitTrieNode()
+	rootNode.LoadWordsToTrie(AvailableCmds)
 
 	return &Repl{
 		osCmds:      osCmds,
 		output:      output.NewOutput(),
 		errorOutput: output.NewOutput(),
+		trieNode:    rootNode,
 	}
+}
+
+func (r *Repl) ShowCmds() {
+	r.Print("Available commands:")
+	// r.trieNode.GetAllWords("e")
+	r.trieNode.Display(0)
 }
 
 func (r *Repl) RedirectStdOutToFile(fileName string, append bool) {
@@ -90,6 +106,10 @@ func (r *Repl) Cd(path string) {
 	if err != nil {
 		r.PrintError(fmt.Sprintf("%s: %s: %s", "cd", path, "No such file or directory"))
 	}
+}
+
+func (r *Repl) GetTrieNode() *autocompletition.TrieNode {
+	return r.trieNode
 }
 
 func NewCmd(repl *Repl, name string) Cmd {

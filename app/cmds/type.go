@@ -5,17 +5,17 @@ import (
 	"slices"
 )
 
+var AvailableCmds = []string{"exit", "type", "echo", "pwd", "cd"}
+
 type Type struct {
 	repl          *Repl
 	availableCmds []string
 }
 
 func InitType(repl *Repl) *Type {
-	availableCmds := []string{"exit", "type", "echo", "pwd", "cd"}
-
 	return &Type{
 		repl:          repl,
-		availableCmds: availableCmds,
+		availableCmds: AvailableCmds,
 	}
 }
 

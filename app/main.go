@@ -5,17 +5,27 @@ import (
 	"os"
 
 	"github.com/codecrafters-io/shell-starter-go/app/cmds"
-	"github.com/codecrafters-io/shell-starter-go/app/internal/args"
 	"github.com/codecrafters-io/shell-starter-go/app/internal/output"
+	"github.com/codecrafters-io/shell-starter-go/app/internal/reader"
 )
 
 func main() {
+	repl := cmds.InitRepl()
+	streamReader := reader.NewStreamReader(repl.GetTrieNode())
+
 	for {
 		fmt.Fprint(os.Stdout, "$ ")
 
-		command, args := args.ParseArgs()
+		command, args, err := streamReader.ReadCommand()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading command: %v\n", err)
+			continue
+		}
 
-		repl := cmds.InitRepl()
+		if command == "" {
+			continue
+		}
+
 		redirectStdout, redirectStdErr, appendStdout, appendStdErr, fileName := output.ParseRedirectIfPresent(args)
 
 		if redirectStdout || appendStdout {

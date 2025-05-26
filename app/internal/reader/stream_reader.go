@@ -19,6 +19,7 @@ const (
 )
 
 type StreamReader struct {
+	tabPressed    bool
 	buffer        strings.Builder
 	cursor        int
 	trie          *autocompletition.TrieNode
@@ -92,6 +93,7 @@ func (r *StreamReader) ReadCommand() (string, []string, error) {
 			return r.parseCommand()
 		case KEY_TAB:
 			r.handleTabCompletion()
+			r.tabPressed = true
 		case KEY_BACKSPACE:
 			r.handleBackspace()
 		case KEY_ESC:
@@ -175,10 +177,14 @@ func (r *StreamReader) handleTabCompletion() {
 			r.addSpace()
 		} else if len(completions) > 1 {
 			// Multiple completions - show options
-			r.showCompletions(completions)
+			switch r.tabPressed {
+			case true:
+				r.showCompletions(completions)
+			case false:
+				r.ringBell()
+			}
 		} else {
-			// No completions - send bell sound
-			fmt.Print("\x07")
+			r.ringBell()
 		}
 	} else {
 		// For arguments, we could implement file/directory completion here
@@ -217,6 +223,10 @@ func (r *StreamReader) addSpace() {
 	r.buffer.WriteRune(' ')
 	r.cursor++
 	fmt.Print(" ")
+}
+
+func (r *StreamReader) ringBell() {
+	fmt.Print("\x07")
 }
 
 func (r *StreamReader) replaceLastWord(oldWord, newWord string) {

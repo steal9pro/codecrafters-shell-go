@@ -1,6 +1,9 @@
 package autocompletition
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 type TrieNode struct {
 	isEndOfWord bool
@@ -102,6 +105,7 @@ func (node *TrieNode) GetAllWords(prefix string) []string {
 
 	// Collect all words starting with the prefix
 	node.collectWords(current, prefix, &words)
+	slices.Sort(words)
 	return words
 }
 

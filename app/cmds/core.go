@@ -46,9 +46,11 @@ func InitRepl() *Repl {
 		}
 	}
 
+	wholeCmdsArray := append(osCmdsArray, AvailableCmds...)
+
 	// Initialize the TrieNode for autocomplete
 	rootNode := autocompletition.InitTrieNode()
-	rootNode.LoadWordsToTrie(AvailableCmds)
+	rootNode.LoadWordsToTrie(wholeCmdsArray)
 
 	return &Repl{
 		osCmds:      osCmds,

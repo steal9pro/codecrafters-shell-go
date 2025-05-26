@@ -1,0 +1,4 @@
+ls: nonexistance: No such file or directory
+ls: nonexistance: No such file or directory
+ls: nonexistance: No such file or directory
+ls: nonexistance: No such file or directory

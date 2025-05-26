@@ -10,10 +10,11 @@ import (
 )
 
 func main() {
-	repl := cmds.InitRepl()
-	streamReader := reader.NewStreamReader(repl.GetTrieNode())
 
 	for {
+		repl := cmds.InitRepl()
+		streamReader := reader.NewStreamReader(repl.GetTrieNode())
+
 		fmt.Fprint(os.Stdout, "$ ")
 
 		command, args, err := streamReader.ReadCommand()

@@ -10,8 +10,8 @@ import (
 )
 
 func main() {
-
 	for {
+		//@TODO move repl outside of loop and fix a bug with preserving output place
 		repl := cmds.InitRepl()
 		streamReader := reader.NewStreamReader(repl.GetTrieNode())
 

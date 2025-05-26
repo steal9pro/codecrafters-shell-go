@@ -176,6 +176,9 @@ func (r *StreamReader) handleTabCompletion() {
 		} else if len(completions) > 1 {
 			// Multiple completions - show options
 			r.showCompletions(completions)
+		} else {
+			// No completions - send bell sound
+			fmt.Print("\x07")
 		}
 	} else {
 		// For arguments, we could implement file/directory completion here

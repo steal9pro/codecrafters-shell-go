@@ -118,6 +118,8 @@ func NewCmd(repl *Repl, name string) Cmd {
 	switch name {
 	case "type":
 		return InitType(repl)
+	case "history":
+		return InitHistory(repl)
 	}
 	return nil
 }

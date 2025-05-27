@@ -42,8 +42,8 @@ func main() {
 		switch command {
 		case "echo":
 			cmds.Echo(repl, args)
-		case "type":
-			exe := cmds.NewCmd(repl, "type")
+		case "type", "history":
+			exe := cmds.NewCmd(repl, command)
 			exe.Run(args)
 		case "pwd":
 			repl.Pwd()

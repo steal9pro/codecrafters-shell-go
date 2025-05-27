@@ -16,7 +16,7 @@ func main() {
 
 	for {
 		repl.ResetOutput()
-		streamReader := reader.NewStreamReader(repl.GetTrieNode())
+		streamReader := reader.NewStreamReader(repl.GetTrieNode(), repl.History)
 
 		fmt.Fprint(os.Stdout, "$ ")
 

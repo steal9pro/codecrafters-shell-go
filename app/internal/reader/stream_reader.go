@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/codecrafters-io/shell-starter-go/app/cmds"
 	"github.com/codecrafters-io/shell-starter-go/app/internal/autocompletition"
 	"golang.org/x/term"
 )
@@ -23,12 +24,14 @@ type StreamReader struct {
 	buffer        strings.Builder
 	cursor        int
 	trie          *autocompletition.TrieNode
+	history       *cmds.History
 	originalState *term.State
 }
 
-func NewStreamReader(trie *autocompletition.TrieNode) *StreamReader {
+func NewStreamReader(trie *autocompletition.TrieNode, history *cmds.History) *StreamReader {
 	return &StreamReader{
-		trie: trie,
+		trie:    trie,
+		history: history,
 	}
 }
 
@@ -207,9 +210,19 @@ func (r *StreamReader) handleEscapeSequence() {
 	if seq[0] == '[' {
 		switch seq[1] {
 		case 'A': // Up arrow
-			// TODO: Implement history navigation
+			cmd := r.history.Up()
+			current := r.buffer.String()
+
+			if cmd != "" {
+				r.replaceLastWord(current, cmd)
+			}
 		case 'B': // Down arrow
-			// TODO: Implement history navigation
+			cmd := r.history.Down()
+			current := r.buffer.String()
+
+			if cmd != "" {
+				r.replaceLastWord(current, cmd)
+			}
 		case 'C': // Right arrow
 			if r.cursor < r.buffer.Len() {
 				r.cursor++

@@ -5,13 +5,16 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 )
 
 var fileName = "history.txt"
 
 type History struct {
-	nextIndex int
-	file      *os.File
+	nextToWriteIndex int
+	file             *os.File
+	navigationIndex  int
+	lines            []string
 }
 
 func InitHistory() *History {
@@ -24,13 +27,13 @@ func InitHistory() *History {
 	}
 
 	return &History{
-		nextIndex: 1,
-		file:      file,
+		nextToWriteIndex: 1,
+		file:             file,
+		lines:            make([]string, 0),
 	}
 }
 
 func (h *History) Run(args []string) {
-
 	if len(args) > 0 {
 		var cursor int64
 
@@ -97,17 +100,19 @@ func (h *History) Run(args []string) {
 		}
 
 	}
-
 }
 
 func (h *History) Write(input string) error {
-	message := fmt.Sprintf("    %v  %s", h.nextIndex, input)
+	message := fmt.Sprintf("    %v  %s", h.nextToWriteIndex, input)
+	h.lines = append(h.lines, strings.TrimSpace(input))
+	h.navigationIndex++
+
 	_, err := fmt.Fprintln(h.file, message)
 	if err != nil {
 		fmt.Println("Error writing to file:", err)
 	}
 
-	h.nextIndex++
+	h.nextToWriteIndex++
 
 	return nil
 }
@@ -119,4 +124,24 @@ func (h *History) Close() error {
 	}
 
 	return nil
+}
+
+func (h *History) Down() string {
+	if h.navigationIndex == len(h.lines)-1 {
+		return ""
+	}
+
+	h.navigationIndex++
+	line := h.lines[h.navigationIndex]
+	return line
+}
+
+func (h *History) Up() string {
+	if len(h.lines) == 0 || h.navigationIndex == 0 {
+		return ""
+	}
+
+	h.navigationIndex--
+	line := h.lines[h.navigationIndex]
+	return line
 }

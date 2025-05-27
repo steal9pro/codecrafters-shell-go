@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/codecrafters-io/shell-starter-go/app/cmds"
 	"github.com/codecrafters-io/shell-starter-go/app/internal/output"
@@ -10,9 +11,11 @@ import (
 )
 
 func main() {
+	repl := cmds.InitRepl()
+	defer repl.History.Close()
+
 	for {
-		//@TODO move repl outside of loop and fix a bug with preserving output place
-		repl := cmds.InitRepl()
+		repl.ResetOutput()
 		streamReader := reader.NewStreamReader(repl.GetTrieNode())
 
 		fmt.Fprint(os.Stdout, "$ ")
@@ -26,6 +29,8 @@ func main() {
 		if command == "" {
 			continue
 		}
+
+		repl.History.Write(fmt.Sprintf("%s %v", command, strings.Join(args, " ")))
 
 		redirectStdout, redirectStdErr, appendStdout, appendStdErr, fileName := output.ParseRedirectIfPresent(args)
 
@@ -42,7 +47,9 @@ func main() {
 		switch command {
 		case "echo":
 			cmds.Echo(repl, args)
-		case "type", "history":
+		case "history":
+			repl.History.Run(args)
+		case "type":
 			exe := cmds.NewCmd(repl, command)
 			exe.Run(args)
 		case "pwd":
@@ -50,6 +57,7 @@ func main() {
 		case "cd":
 			repl.Cd(args[0])
 		case "exit":
+			repl.History.Close()
 			os.Exit(0)
 		default:
 			_, ok := repl.CmdExist(command)

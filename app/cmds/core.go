@@ -19,6 +19,7 @@ type Repl struct {
 	output      output.Output
 	errorOutput output.Output
 	trieNode    *autocompletition.TrieNode
+	History     *History
 }
 
 func InitRepl() *Repl {
@@ -57,7 +58,13 @@ func InitRepl() *Repl {
 		output:      output.NewOutput(),
 		errorOutput: output.NewOutput(),
 		trieNode:    rootNode,
+		History:     InitHistory(),
 	}
+}
+
+func (r *Repl) ResetOutput() {
+	r.output = output.NewOutput()
+	r.errorOutput = output.NewOutput()
 }
 
 func (r *Repl) ShowCmds() {
@@ -118,8 +125,6 @@ func NewCmd(repl *Repl, name string) Cmd {
 	switch name {
 	case "type":
 		return InitType(repl)
-	case "history":
-		return InitHistory(repl)
 	}
 	return nil
 }

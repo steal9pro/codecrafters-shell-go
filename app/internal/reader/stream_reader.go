@@ -159,8 +159,8 @@ func (r *StreamReader) handleTabCompletion() {
 	words := strings.Fields(current)
 
 	if len(words) == 0 {
-		// No input yet, show all available commands
-		r.showCompletions(r.trie.GetAllWords(""))
+		completions, _ := r.trie.GetAllWords("")
+		r.showCompletions(completions)
 		return
 	}
 
@@ -169,7 +169,7 @@ func (r *StreamReader) handleTabCompletion() {
 
 	// For the first word (command), use trie completion
 	if len(words) == 1 || (len(words) == 1 && !strings.HasSuffix(current, " ")) {
-		completions := r.trie.GetAllWords(lastWord)
+		completions, longestCommon := r.trie.GetAllWords(lastWord)
 		if len(completions) == 1 {
 			// Single completion - auto-complete
 			completion := completions[0]
@@ -177,12 +177,17 @@ func (r *StreamReader) handleTabCompletion() {
 			r.addSpace()
 		} else if len(completions) > 1 {
 			// Multiple completions - show options
-			switch r.tabPressed {
-			case true:
-				r.showCompletions(completions)
-			case false:
-				r.ringBell()
+			if longestCommon != "" {
+				r.replaceLastWord(lastWord, longestCommon)
+			} else {
+				switch r.tabPressed {
+				case true:
+					r.showCompletions(completions)
+				case false:
+					r.ringBell()
+				}
 			}
+
 		} else {
 			r.ringBell()
 		}

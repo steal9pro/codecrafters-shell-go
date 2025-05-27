@@ -91,32 +91,42 @@ func (node *TrieNode) Display(idx int) {
 	}
 }
 
-func (node *TrieNode) GetAllWords(prefix string) []string {
+func (node *TrieNode) GetAllWords(prefix string) ([]string, string) {
 	var words []string
+	var longestCommonWord string
+	var multipleCompletions bool
+
 	current := node
 
 	// Navigate to the prefix
 	for _, char := range prefix {
 		if current.children[char] == nil {
-			return words
+			return words, ""
 		}
 		current = current.children[char]
 	}
 
 	// Collect all words starting with the prefix
-	node.collectWords(current, prefix, &words)
+	node.collectWords(current, prefix, &words, &longestCommonWord, &multipleCompletions)
 	slices.Sort(words)
-	return words
+	return words, longestCommonWord
 }
 
-func (node *TrieNode) collectWords(current *TrieNode, currentWord string, words *[]string) {
+func (node *TrieNode) collectWords(current *TrieNode, currentWord string, words *[]string, longestCommonWord *string, multipleCompletions *bool) {
+	if len(current.children) > 1 {
+		*multipleCompletions = true
+	}
+
 	if current.isEndOfWord {
+		if *longestCommonWord == "" && *multipleCompletions == false {
+			*longestCommonWord = currentWord
+		}
 		*words = append(*words, currentWord)
 	}
 
 	for char, child := range current.children {
 		if child != nil {
-			node.collectWords(child, currentWord+string(char), words)
+			node.collectWords(child, currentWord+string(char), words, longestCommonWord, multipleCompletions)
 		}
 	}
 }

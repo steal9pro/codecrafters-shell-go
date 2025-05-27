@@ -5,6 +5,7 @@ import (
 	"slices"
 )
 
+// var AvailableCmds = []string{"exit", "type", "echo", "pwd", "cd", "xyz_baz", "xyz_baz_foo", "xyz_baz_foo_quz"}
 var AvailableCmds = []string{"exit", "type", "echo", "pwd", "cd"}
 
 type Type struct {

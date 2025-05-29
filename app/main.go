@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/codecrafters-io/shell-starter-go/app/cmds"
-	"github.com/codecrafters-io/shell-starter-go/app/internal/output"
 	"github.com/codecrafters-io/shell-starter-go/app/internal/reader"
+	"github.com/codecrafters-io/shell-starter-go/app/internal/runner"
 )
 
 func main() {
@@ -20,52 +20,37 @@ func main() {
 
 		fmt.Fprint(os.Stdout, "$ ")
 
-		command, args, err := streamReader.ReadCommand()
+		cmdPipe, err := streamReader.ReadCommand()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading command: %v\n", err)
 			continue
 		}
 
-		if command == "" {
+		if cmdPipe == nil {
 			continue
 		}
 
-		repl.History.Write(fmt.Sprintf("%s %v", command, strings.Join(args, " ")))
-
-		redirectStdout, redirectStdErr, appendStdout, appendStdErr, fileName := output.ParseRedirectIfPresent(args)
-
-		if redirectStdout || appendStdout {
-			repl.RedirectStdOutToFile(fileName, appendStdout)
-			args = args[0 : len(args)-2]
+		if len(cmdPipe.Cmds) == 0 {
+			continue
 		}
 
-		if redirectStdErr || appendStdErr {
-			repl.RedirectStdErrToFile(fileName, appendStdErr)
-			args = args[0 : len(args)-2]
-		}
+		if len(cmdPipe.Cmds) == 1 {
+			cmd := cmdPipe.Cmds[0]
+			repl.History.Write(fmt.Sprintf("%s %v", cmd.Command, strings.Join(cmd.Args, " ")))
 
-		switch command {
-		case "echo":
-			cmds.Echo(repl, args)
-		case "history":
-			repl.History.Run(args)
-		case "type":
-			exe := cmds.NewCmd(repl, command)
-			exe.Run(args)
-		case "pwd":
-			repl.Pwd()
-		case "cd":
-			repl.Cd(args[0])
-		case "exit":
-			repl.History.Close()
-			os.Exit(0)
-		default:
-			_, ok := repl.CmdExist(command)
-			if !ok {
-				repl.PrintError(fmt.Sprintf(command + ": command not found"))
-				continue
+			err := runner.RunSingleCmd(repl, cmd)
+
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error running command: %v\n", err)
 			}
-			cmds.RunOSCmd(repl, command, args)
+		}
+
+		if len(cmdPipe.Cmds) > 1 {
+			err := runner.RunPipeCmds(repl, cmdPipe)
+
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error running command: %v\n", err)
+			}
 		}
 	}
 }

@@ -28,6 +28,15 @@ type StreamReader struct {
 	originalState *term.State
 }
 
+type Cmd struct {
+	Command string
+	Args    []string
+}
+
+type CmdsPipe struct {
+	Cmds []*Cmd
+}
+
 func NewStreamReader(trie *autocompletition.TrieNode, history *cmds.History) *StreamReader {
 	return &StreamReader{
 		trie:    trie,
@@ -68,12 +77,12 @@ func (r *StreamReader) disableRawMode() error {
 	return nil
 }
 
-func (r *StreamReader) ReadCommand() (string, []string, error) {
+func (r *StreamReader) ReadCommand() (*CmdsPipe, error) {
 	r.buffer.Reset()
 	r.cursor = 0
 
 	if err := r.enableRawMode(); err != nil {
-		return "", nil, err
+		return nil, err
 	}
 	defer r.disableRawMode()
 
@@ -81,7 +90,7 @@ func (r *StreamReader) ReadCommand() (string, []string, error) {
 		char := make([]byte, 1)
 		n, err := os.Stdin.Read(char)
 		if err != nil {
-			return "", nil, err
+			return nil, err
 		}
 		if n == 0 {
 			continue
@@ -90,10 +99,10 @@ func (r *StreamReader) ReadCommand() (string, []string, error) {
 		switch char[0] {
 		case KEY_CTRL_J:
 			fmt.Print("\r\n")
-			return r.parseCommand()
+			return r.parseCmdsPipe()
 		case KEY_ENTER:
 			fmt.Print("\r\n")
-			return r.parseCommand()
+			return r.parseCmdsPipe()
 		case KEY_TAB:
 			r.handleTabCompletion()
 			r.tabPressed = true
@@ -290,12 +299,36 @@ func (r *StreamReader) redrawPrompt() {
 	}
 }
 
-func (r *StreamReader) parseCommand() (string, []string, error) {
+func (r *StreamReader) parseCmdsPipe() (*CmdsPipe, error) {
+	var cmds []*Cmd
+
 	input := strings.TrimSpace(r.buffer.String())
 	if input == "" {
-		return "", nil, nil
+		return nil, nil
 	}
 
+	parts := strings.Split(input, "|")
+
+	for _, part := range parts {
+		cmd := strings.TrimSpace(part)
+		if cmd == "" {
+			continue
+		}
+
+		parsedCmd, err := parseCommand(cmd)
+		if err != nil {
+			return nil, err
+		}
+
+		cmds = append(cmds, parsedCmd)
+	}
+
+	return &CmdsPipe{
+		Cmds: cmds,
+	}, nil
+}
+
+func parseCommand(input string) (*Cmd, error) {
 	// Use similar parsing logic as the original args package
 	args := make([]string, 0)
 	inQuotes := false
@@ -378,11 +411,16 @@ func (r *StreamReader) parseCommand() (string, []string, error) {
 	}
 
 	if len(args) == 0 {
-		return "", nil, nil
+		return nil, nil
 	}
 
 	command := args[0]
 	cmdArgs := args[1:]
 
-	return command, cmdArgs, nil
+	parsedCmd := &Cmd{
+		Command: command,
+		Args:    cmdArgs,
+	}
+
+	return parsedCmd, nil
 }

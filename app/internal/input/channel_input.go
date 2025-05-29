@@ -32,13 +32,13 @@ func (ci *ChannelInput) Read(p []byte) (n int, err error) {
 	// If buffer is empty, try to get more data from channel
 	if ci.buffer.Len() == 0 {
 		select {
-		case line, ok := <-ci.channel:
+		case data, ok := <-ci.channel:
 			if !ok {
 				ci.finished = true
 				return 0, io.EOF
 			}
-			// Add newline to match typical pipe behavior
-			ci.buffer.WriteString(line + "\n")
+			// Write raw data as-is
+			ci.buffer.WriteString(data)
 		default:
 			// Channel is empty but not closed
 			if ci.closed {
@@ -46,12 +46,12 @@ func (ci *ChannelInput) Read(p []byte) (n int, err error) {
 				return 0, io.EOF
 			}
 			// Try one more time with blocking read
-			line, ok := <-ci.channel
+			data, ok := <-ci.channel
 			if !ok {
 				ci.finished = true
 				return 0, io.EOF
 			}
-			ci.buffer.WriteString(line + "\n")
+			ci.buffer.WriteString(data)
 		}
 	}
 
@@ -63,24 +63,24 @@ func (ci *ChannelInput) Close() {
 }
 
 func (ci *ChannelInput) ReadAll() ([]string, error) {
-	var lines []string
+	var chunks []string
 	
 	for {
-		line, ok := <-ci.channel
+		data, ok := <-ci.channel
 		if !ok {
 			break
 		}
-		lines = append(lines, line)
+		chunks = append(chunks, data)
 	}
 	
-	return lines, nil
+	return chunks, nil
 }
 
 func (ci *ChannelInput) ReadString() (string, error) {
-	lines, err := ci.ReadAll()
+	chunks, err := ci.ReadAll()
 	if err != nil {
 		return "", err
 	}
 	
-	return strings.Join(lines, "\n"), nil
+	return strings.Join(chunks, ""), nil
 }

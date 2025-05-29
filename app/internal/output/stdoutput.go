@@ -25,9 +25,10 @@ func (so *StandartOutput) WriteStream(r io.Reader, isError bool) {
 		writer = so.stderr
 	}
 
-	buf := make([]byte, 32*1024)
+	buf := make([]byte, 1024)
 	for {
 		n, err := r.Read(buf)
+		// fmt.Printf("get new %d bytes from cmd to standart output\n", n)
 		if n > 0 {
 			_, werr := writer.Write(buf[:n])
 			if werr != nil {

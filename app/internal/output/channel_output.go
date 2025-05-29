@@ -5,7 +5,7 @@ import (
 )
 
 type ChannelOutput struct {
-	channel chan string
+	channel chan []byte
 	closed  bool
 }
 
@@ -13,14 +13,14 @@ func (co *ChannelOutput) Print(message string) {
 	if co.closed {
 		return
 	}
-	co.channel <- message
+	co.channel <- []byte(message)
 }
 
 func (co *ChannelOutput) PrintError(message string) {
 	if co.closed {
 		return
 	}
-	co.channel <- message
+	co.channel <- []byte(message)
 }
 
 func (co *ChannelOutput) WriteStream(r io.Reader, isError bool) {
@@ -31,8 +31,9 @@ func (co *ChannelOutput) WriteStream(r io.Reader, isError bool) {
 	buf := make([]byte, 4096)
 	for {
 		n, err := r.Read(buf)
+		// fmt.Printf("send new %d bytes from cmd\n", n)
 		if n > 0 {
-			co.channel <- string(buf[:n])
+			co.channel <- buf[:n]
 		}
 		if err != nil {
 			break
@@ -47,13 +48,13 @@ func (co *ChannelOutput) Close() {
 	}
 }
 
-func (co *ChannelOutput) GetChannel() <-chan string {
+func (co *ChannelOutput) GetChannel() <-chan []byte {
 	return co.channel
 }
 
 func NewChannelOutput() *ChannelOutput {
 	return &ChannelOutput{
-		channel: make(chan string, 100), // Buffered channel to prevent blocking
+		channel: make(chan []byte, 100), // Buffered channel to prevent blocking
 		closed:  false,
 	}
 }

@@ -54,7 +54,6 @@ func RunSingleCmd(repl *cmds.Repl, cmdStruct *reader.Cmd) error {
 	default:
 		_, ok := repl.CmdExist(cmdStruct.Command)
 		if !ok {
-			repl.PrintError(fmt.Sprintf(cmdStruct.Command + ": command not found"))
 			return ErrCommandNotFound
 		}
 		cmds.RunOSCmd(repl, cmdStruct.Command, args)

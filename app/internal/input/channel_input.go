@@ -3,29 +3,31 @@ package input
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"strings"
 )
 
 type ChannelInput struct {
-	channel  <-chan string
+	channel  <-chan []byte
 	buffer   *bytes.Buffer
 	scanner  *bufio.Scanner
 	closed   bool
 	finished bool
 }
 
-func NewChannelInput(channel <-chan string) *ChannelInput {
+func NewChannelInput(channel <-chan []byte) io.Reader {
 	return &ChannelInput{
-		channel: channel,
-		buffer:  &bytes.Buffer{},
-		closed:  false,
+		channel:  channel,
+		buffer:   &bytes.Buffer{},
+		closed:   false,
 		finished: false,
 	}
 }
 
 func (ci *ChannelInput) Read(p []byte) (n int, err error) {
 	if ci.finished {
+		fmt.Println("finishing")
 		return 0, io.EOF
 	}
 
@@ -38,10 +40,11 @@ func (ci *ChannelInput) Read(p []byte) (n int, err error) {
 				return 0, io.EOF
 			}
 			// Write raw data as-is
-			ci.buffer.WriteString(data)
+			ci.buffer.Write(data)
 		default:
 			// Channel is empty but not closed
 			if ci.closed {
+				fmt.Println("ci closed")
 				ci.finished = true
 				return 0, io.EOF
 			}
@@ -51,7 +54,7 @@ func (ci *ChannelInput) Read(p []byte) (n int, err error) {
 				ci.finished = true
 				return 0, io.EOF
 			}
-			ci.buffer.WriteString(data)
+			ci.buffer.Write(data)
 		}
 	}
 
@@ -64,15 +67,15 @@ func (ci *ChannelInput) Close() {
 
 func (ci *ChannelInput) ReadAll() ([]string, error) {
 	var chunks []string
-	
+
 	for {
 		data, ok := <-ci.channel
 		if !ok {
 			break
 		}
-		chunks = append(chunks, data)
+		chunks = append(chunks, string(data))
 	}
-	
+
 	return chunks, nil
 }
 
@@ -81,6 +84,6 @@ func (ci *ChannelInput) ReadString() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	return strings.Join(chunks, ""), nil
 }

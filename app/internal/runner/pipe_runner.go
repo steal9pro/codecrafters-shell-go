@@ -40,11 +40,16 @@ func RunPipeCmds(repl *cmds.Repl, cmdPipe *reader.CmdsPipe) error {
 		go func(index int, command *reader.Cmd) {
 			defer wg.Done()
 
+			// close output channel when command is completed
+			// not applicable for last command
+			if index < len(cmdPipe.Cmds)-1 {
+				defer channels[index].Close()
+			}
+
 			// Create a new repl instance for this command
 			cmdRepl := createPipeRepl(repl, index, channels)
 
 			err := runPipeCommand(cmdRepl, command, index, channels)
-			fmt.Println("complete cmd ", index)
 			if err != nil {
 				errChan <- err
 			}
@@ -133,7 +138,6 @@ func runOSCmdInPipe(repl *cmds.Repl, path, name string, args []string, cmdIndex 
 
 	// Set up input from previous command if not the first
 	if cmdIndex > 0 {
-		fmt.Printf("command index %v \n", cmdIndex)
 		prevChannel := channels[cmdIndex-1].GetChannel()
 		channelInput := input.NewChannelInput(prevChannel)
 		cmd.Stdin = channelInput
@@ -141,7 +145,6 @@ func runOSCmdInPipe(repl *cmds.Repl, path, name string, args []string, cmdIndex 
 
 	// Set up output
 	if cmdIndex < len(channels) {
-		fmt.Println("not the last cmd ", cmdIndex)
 		// Not the last command, pipe output to next command
 		stdoutPipe, err := cmd.StdoutPipe()
 		if err != nil {
@@ -170,7 +173,6 @@ func runOSCmdInPipe(repl *cmds.Repl, path, name string, args []string, cmdIndex 
 		// Wait for command to complete
 		return cmd.Wait()
 	} else {
-		fmt.Println("last cmd")
 		// Last command, output to terminal
 		stdoutPipe, err := cmd.StdoutPipe()
 		if err != nil {

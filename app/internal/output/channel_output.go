@@ -2,7 +2,6 @@ package output
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 )
 
@@ -32,9 +31,8 @@ func (co *ChannelOutput) WriteStream(r io.Reader, isError bool) {
 
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
-		fmt.Println("put test to channel")
-		line := scanner.Text()
-		co.channel <- line
+		line := scanner.Bytes()
+		co.channel <- string(line)
 	}
 }
 

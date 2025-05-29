@@ -36,7 +36,7 @@ func (fo *FileOutput) PrintError(message string) {
 	}
 }
 
-func (fo *FileOutput) WriteStream(r io.Reader, isError bool) {
+func (fo *FileOutput) WriteStream(r io.Reader) {
 	if fo.closed {
 		fmt.Println("Error: file already closed")
 		return

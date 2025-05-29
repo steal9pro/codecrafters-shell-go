@@ -23,7 +23,7 @@ func (co *ChannelOutput) PrintError(message string) {
 	co.channel <- []byte(message)
 }
 
-func (co *ChannelOutput) WriteStream(r io.Reader, isError bool) {
+func (co *ChannelOutput) WriteStream(r io.Reader) {
 	if co.closed {
 		return
 	}

@@ -57,8 +57,8 @@ func InitRepl() *Repl {
 
 	return &Repl{
 		osCmds:        osCmds,
-		output:        output.NewOutput(),
-		errorOutput:   output.NewOutput(),
+		output:        output.NewOutput(false),
+		errorOutput:   output.NewOutput(true),
 		channelOutput: nil,
 		trieNode:      rootNode,
 		History:       InitHistory(),
@@ -66,8 +66,8 @@ func InitRepl() *Repl {
 }
 
 func (r *Repl) ResetOutput() {
-	r.output = output.NewOutput()
-	r.errorOutput = output.NewOutput()
+	r.output = output.NewOutput(false)
+	r.errorOutput = output.NewOutput(true)
 	r.channelOutput = nil
 }
 
@@ -89,7 +89,7 @@ func (r *Repl) GetErrorOutput() output.Output {
 }
 
 func (r *Repl) PrintErrorStream(reader io.Reader) {
-	r.errorOutput.WriteStream(reader, true)
+	r.errorOutput.WriteStream(reader)
 }
 
 func (r *Repl) ShowCmds() {
@@ -181,12 +181,12 @@ func RunOSCmd(repl *Repl, name string, args []string) {
 	stderrDone := make(chan bool)
 
 	go func() {
-		repl.output.WriteStream(stdoutPipe, false)
+		repl.output.WriteStream(stdoutPipe)
 		stdoutDone <- true
 	}()
 
 	go func() {
-		repl.errorOutput.WriteStream(stderrPipe, true)
+		repl.errorOutput.WriteStream(stderrPipe)
 		stderrDone <- true
 	}()
 

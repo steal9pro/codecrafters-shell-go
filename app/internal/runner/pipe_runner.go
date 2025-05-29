@@ -163,7 +163,7 @@ func runOSCmdInPipe(repl *cmds.Repl, path, name string, args []string, cmdIndex 
 
 		// Handle stdout and stderr
 		go func() {
-			repl.GetChannelOutput().WriteStream(stdoutPipe, false)
+			repl.GetChannelOutput().WriteStream(stdoutPipe)
 		}()
 
 		go func() {
@@ -171,7 +171,14 @@ func runOSCmdInPipe(repl *cmds.Repl, path, name string, args []string, cmdIndex 
 		}()
 
 		// Wait for command to complete
-		return cmd.Wait()
+		if err := cmd.Wait(); err != nil {
+			if _, ok := err.(*exec.ExitError); ok {
+				// Command failed with non-zero exit code, which is normal
+				return nil
+			}
+			return fmt.Errorf("error waiting for command: %v", err)
+		}
+		return nil
 	} else {
 		// Last command, output to terminal
 		stdoutPipe, err := cmd.StdoutPipe()
@@ -193,15 +200,22 @@ func runOSCmdInPipe(repl *cmds.Repl, path, name string, args []string, cmdIndex 
 
 		go func() {
 			defer wg.Done()
-			repl.GetOutput().WriteStream(stdoutPipe, false)
+			repl.GetOutput().WriteStream(stdoutPipe)
 		}()
 
 		go func() {
 			defer wg.Done()
-			repl.GetErrorOutput().WriteStream(stderrPipe, true)
+			repl.GetErrorOutput().WriteStream(stderrPipe)
 		}()
 
 		wg.Wait()
-		return cmd.Wait()
+		if err := cmd.Wait(); err != nil {
+			if _, ok := err.(*exec.ExitError); ok {
+				// Command failed with non-zero exit code, which is normal
+				return nil
+			}
+			return fmt.Errorf("error waiting for command: %v", err)
+		}
+		return nil
 	}
 }

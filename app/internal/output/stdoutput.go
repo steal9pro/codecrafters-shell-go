@@ -7,23 +7,20 @@ import (
 )
 
 type StandartOutput struct {
-	stdout io.Writer
-	stderr io.Writer
+	isError bool
+	output  io.Writer
 }
 
 func (so *StandartOutput) Print(message string) {
-	fmt.Fprintln(so.stdout, message)
+	fmt.Fprintln(so.output, message)
 }
 
 func (so *StandartOutput) PrintError(message string) {
-	fmt.Fprintln(so.stderr, message)
+	fmt.Fprintln(so.output, message)
 }
 
-func (so *StandartOutput) WriteStream(r io.Reader, isError bool) {
-	writer := so.stdout
-	if isError {
-		writer = so.stderr
-	}
+func (so *StandartOutput) WriteStream(r io.Reader) {
+	writer := so.output
 
 	buf := make([]byte, 1024)
 	for {
@@ -40,15 +37,20 @@ func (so *StandartOutput) WriteStream(r io.Reader, isError bool) {
 			break
 		}
 		if err != nil {
-			// fmt.Printl("Error reading from stream:", err)
+			// fmt.Println("Error reading from stream:", err)
 			return
 		}
 	}
 }
 
-func NewOutput() Output {
+func NewOutput(isError bool) Output {
+	if isError {
+		return &StandartOutput{
+			isError: true,
+			output:  os.Stderr,
+		}
+	}
 	return &StandartOutput{
-		stdout: os.Stdout,
-		stderr: os.Stderr,
+		output: os.Stdout,
 	}
 }

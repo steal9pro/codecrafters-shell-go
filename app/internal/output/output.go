@@ -7,5 +7,5 @@ import (
 type Output interface {
 	Print(message string)
 	PrintError(message string)
-	WriteStream(r io.Reader, isError bool)
+	WriteStream(r io.Reader)
 }

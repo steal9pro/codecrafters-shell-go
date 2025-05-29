@@ -13,7 +13,7 @@ func (co *ChannelOutput) Print(message string) {
 	if co.closed {
 		return
 	}
-	co.channel <- []byte(message)
+	co.channel <- []byte(message + "\n")
 }
 
 func (co *ChannelOutput) PrintError(message string) {

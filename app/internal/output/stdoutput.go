@@ -40,7 +40,7 @@ func (so *StandartOutput) WriteStream(r io.Reader, isError bool) {
 			break
 		}
 		if err != nil {
-			fmt.Println("Error reading from stream:", err)
+			// fmt.Printl("Error reading from stream:", err)
 			return
 		}
 	}

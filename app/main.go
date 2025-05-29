@@ -34,23 +34,23 @@ func main() {
 			continue
 		}
 
+		// Write command to history for single commands
 		if len(cmdPipe.Cmds) == 1 {
 			cmd := cmdPipe.Cmds[0]
 			repl.History.Write(fmt.Sprintf("%s %v", cmd.Command, strings.Join(cmd.Args, " ")))
-
-			err := runner.RunSingleCmd(repl, cmd)
-
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error running command: %v\n", err)
+		} else {
+			// Write the entire pipe command to history
+			var cmdStrings []string
+			for _, cmd := range cmdPipe.Cmds {
+				cmdStrings = append(cmdStrings, fmt.Sprintf("%s %s", cmd.Command, strings.Join(cmd.Args, " ")))
 			}
+			repl.History.Write(strings.Join(cmdStrings, " | "))
 		}
 
-		if len(cmdPipe.Cmds) > 1 {
-			err := runner.RunPipeCmds(repl, cmdPipe)
-
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error running command: %v\n", err)
-			}
+		// Handle both single commands and pipes uniformly
+		err = runner.RunPipeCmds(repl, cmdPipe)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error running command: %v\n", err)
 		}
 	}
 }

@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -15,11 +16,12 @@ type Cmd interface {
 }
 
 type Repl struct {
-	osCmds      map[string]string
-	output      output.Output
-	errorOutput output.Output
-	trieNode    *autocompletition.TrieNode
-	History     *History
+	osCmds        map[string]string
+	output        output.Output
+	errorOutput   output.Output
+	channelOutput *output.ChannelOutput
+	trieNode      *autocompletition.TrieNode
+	History       *History
 }
 
 func InitRepl() *Repl {
@@ -54,17 +56,40 @@ func InitRepl() *Repl {
 	rootNode.LoadWordsToTrie(wholeCmdsArray)
 
 	return &Repl{
-		osCmds:      osCmds,
-		output:      output.NewOutput(),
-		errorOutput: output.NewOutput(),
-		trieNode:    rootNode,
-		History:     InitHistory(),
+		osCmds:        osCmds,
+		output:        output.NewOutput(),
+		errorOutput:   output.NewOutput(),
+		channelOutput: nil,
+		trieNode:      rootNode,
+		History:       InitHistory(),
 	}
 }
 
 func (r *Repl) ResetOutput() {
 	r.output = output.NewOutput()
 	r.errorOutput = output.NewOutput()
+	r.channelOutput = nil
+}
+
+func (r *Repl) RedirectStdOutToChannel(channelOutput *output.ChannelOutput) {
+	r.channelOutput = channelOutput
+	r.output = channelOutput
+}
+
+func (r *Repl) GetChannelOutput() *output.ChannelOutput {
+	return r.channelOutput
+}
+
+func (r *Repl) GetOutput() output.Output {
+	return r.output
+}
+
+func (r *Repl) GetErrorOutput() output.Output {
+	return r.errorOutput
+}
+
+func (r *Repl) PrintErrorStream(reader io.Reader) {
+	r.errorOutput.WriteStream(reader, true)
 }
 
 func (r *Repl) ShowCmds() {

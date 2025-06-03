@@ -71,6 +71,10 @@ func (r *Repl) ResetOutput() {
 	r.channelOutput = nil
 }
 
+func (r *Repl) SetOutput(output output.Output) {
+	r.output = output
+}
+
 func (r *Repl) RedirectStdOutToChannel(channelOutput *output.ChannelOutput) {
 	r.channelOutput = channelOutput
 	r.output = channelOutput
@@ -127,7 +131,7 @@ func (r *Repl) Pwd() {
 		return
 	}
 
-	r.Print(absPath)
+	r.Print(fmt.Sprintf("%s\n", absPath))
 }
 
 func (r *Repl) Cd(path string) {

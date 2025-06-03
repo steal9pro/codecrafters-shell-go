@@ -18,7 +18,7 @@ func (fo *FileOutput) Print(message string) {
 		return
 	}
 
-	_, err := fmt.Fprintln(fo.file, message)
+	_, err := fmt.Fprint(fo.file, message)
 	if err != nil {
 		fmt.Println("Error writing to file:", err)
 	}

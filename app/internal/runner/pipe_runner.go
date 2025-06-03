@@ -1,18 +1,64 @@
 package runner
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"sync"
+	"syscall"
+	"time"
 
 	"github.com/codecrafters-io/shell-starter-go/app/cmds"
-	"github.com/codecrafters-io/shell-starter-go/app/internal/input"
 	"github.com/codecrafters-io/shell-starter-go/app/internal/output"
 	"github.com/codecrafters-io/shell-starter-go/app/internal/reader"
 )
 
-func RunPipeCmds(repl *cmds.Repl, cmdPipe *reader.CmdsPipe) error {
+type OutputStreamWriter struct {
+	output output.Output
+}
+
+func (osw *OutputStreamWriter) Write(p []byte) (n int, err error) {
+	osw.output.WriteStream(bytes.NewReader(p))
+	return len(p), nil
+}
+
+type PipeRunner struct {
+	repl     *cmds.Repl
+	commands []*reader.Cmd
+	ctx      context.Context
+	cancel   context.CancelFunc
+	pipes    []*io.PipeReader
+	writers  []*io.PipeWriter
+	wg       sync.WaitGroup
+	errChan  chan error
+}
+
+func NewPipeRunner(repl *cmds.Repl, cmdPipe *reader.CmdsPipe) *PipeRunner {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	numPipes := len(cmdPipe.Cmds) - 1
+	pipes := make([]*io.PipeReader, numPipes)
+	writers := make([]*io.PipeWriter, numPipes)
+
+	for i := 0; i < numPipes; i++ {
+		pipes[i], writers[i] = io.Pipe()
+	}
+
+	return &PipeRunner{
+		repl:     repl,
+		commands: cmdPipe.Cmds,
+		ctx:      ctx,
+		cancel:   cancel,
+		pipes:    pipes,
+		writers:  writers,
+		errChan:  make(chan error, len(cmdPipe.Cmds)),
+	}
+}
+
+func RunPipeCmdsV2(repl *cmds.Repl, cmdPipe *reader.CmdsPipe) error {
 	if cmdPipe == nil {
 		return ErrInvalidCommand
 	}
@@ -25,50 +71,26 @@ func RunPipeCmds(repl *cmds.Repl, cmdPipe *reader.CmdsPipe) error {
 		return RunSingleCmd(repl, cmdPipe.Cmds[0])
 	}
 
-	// Create channels for communication between commands
-	channels := make([]*output.ChannelOutput, len(cmdPipe.Cmds)-1)
-	for i := 0; i < len(cmdPipe.Cmds)-1; i++ {
-		channels[i] = output.NewChannelOutput()
+	runner := NewPipeRunner(repl, cmdPipe)
+	defer runner.cleanup()
+
+	return runner.execute()
+}
+
+func (pr *PipeRunner) execute() error {
+	for i, cmd := range pr.commands {
+		pr.wg.Add(1)
+		go pr.runCommand(i, cmd)
 	}
 
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(cmdPipe.Cmds))
+	// Monitor for completion and handle cleanup
+	go pr.monitor()
 
-	// Execute each command in the pipe
-	for i, cmd := range cmdPipe.Cmds {
-		wg.Add(1)
-		go func(index int, command *reader.Cmd) {
-			defer wg.Done()
+	pr.wg.Wait()
+	close(pr.errChan)
 
-			// close output channel when command is completed
-			// not applicable for last command
-			if index < len(cmdPipe.Cmds)-1 {
-				defer channels[index].Close()
-			}
-
-			// Create a new repl instance for this command
-			cmdRepl := createPipeRepl(repl, index, channels)
-
-			err := runPipeCommand(cmdRepl, command, index, channels)
-			if err != nil {
-				errChan <- err
-			}
-		}(i, cmd)
-	}
-
-	// Wait for all commands to complete
-	go func() {
-		wg.Wait()
-		close(errChan)
-
-		// Close all channels
-		for _, ch := range channels {
-			ch.Close()
-		}
-	}()
-
-	// Check for errors
-	for err := range errChan {
+	// Return first error if any
+	for err := range pr.errChan {
 		if err != nil {
 			return err
 		}
@@ -77,145 +99,188 @@ func RunPipeCmds(repl *cmds.Repl, cmdPipe *reader.CmdsPipe) error {
 	return nil
 }
 
-func createPipeRepl(originalRepl *cmds.Repl, cmdIndex int, channels []*output.ChannelOutput) *cmds.Repl {
-	// Create a copy of the repl with modified input/output
-	newRepl := &cmds.Repl{}
-	*newRepl = *originalRepl
+func (pr *PipeRunner) runCommand(index int, cmd *reader.Cmd) {
+	defer pr.wg.Done()
 
-	// Set output for this command
-	if cmdIndex < len(channels) {
-		// Not the last command, redirect output to channel
-		newRepl.RedirectStdOutToChannel(channels[cmdIndex])
-	} else {
-		// Last command, use original output
-		newRepl.ResetOutput()
+	select {
+	case <-pr.ctx.Done():
+		return
+	default:
 	}
 
-	return newRepl
+	var err error
+	if isBuiltinCommandV2(cmd.Command) {
+		err = pr.runBuiltinCommand(index, cmd)
+	} else {
+		err = pr.runExternalCommand(index, cmd)
+	}
+
+	if err != nil {
+		pr.errChan <- err
+		pr.cancel() // Cancel other commands on error
+	}
 }
 
-func runPipeCommand(repl *cmds.Repl, cmdStruct *reader.Cmd, cmdIndex int, channels []*output.ChannelOutput) error {
-	if cmdStruct == nil {
-		return ErrInvalidCommand
+func (pr *PipeRunner) runBuiltinCommand(index int, cmd *reader.Cmd) error {
+	var cmdOutput output.Output = pr.repl.GetOutput()
+
+	// If not the last command, redirect to pipe
+	if index < len(pr.writers) {
+		cmdOutput = &output.PipeOutput{Writer: pr.writers[index]}
+		defer pr.writers[index].Close()
 	}
 
-	if cmdStruct.Command == "" {
-		return ErrEmptyCommand
+	// If not the first command, consume input from previous pipe to prevent hanging
+	if index > 0 {
+		go func() {
+			io.Copy(io.Discard, pr.pipes[index-1])
+		}()
 	}
 
-	args := cmdStruct.Args
+	// Create modified repl for this command
+	cmdRepl := pr.createCommandRepl(cmdOutput)
 
-	switch cmdStruct.Command {
+	switch cmd.Command {
 	case "echo":
-		cmds.Echo(repl, args)
+		cmds.Echo(cmdRepl, cmd.Args)
 	case "history":
-		repl.History.Run(args)
+		cmdRepl.History.Run(cmd.Args)
 	case "type":
-		exe := cmds.NewCmd(repl, cmdStruct.Command)
-		exe.Run(args)
+		exe := cmds.NewCmd(cmdRepl, cmd.Command)
+		exe.Run(cmd.Args)
 	case "pwd":
-		repl.Pwd()
+		cmdRepl.Pwd()
 	case "cd":
-		if len(args) > 0 {
-			repl.Cd(args[0])
+		if len(cmd.Args) > 0 {
+			cmdRepl.Cd(cmd.Args[0])
 		}
 	case "exit":
-		repl.History.Close()
+		cmdRepl.History.Close()
 		os.Exit(0)
-	default:
-		path, ok := repl.CmdExist(cmdStruct.Command)
-		if !ok {
-			return fmt.Errorf("%s: command not found", cmdStruct.Command)
-		}
-		return runOSCmdInPipe(repl, path, cmdStruct.Command, args, cmdIndex, channels)
 	}
 
 	return nil
 }
 
-func runOSCmdInPipe(repl *cmds.Repl, path, name string, args []string, cmdIndex int, channels []*output.ChannelOutput) error {
-	cmd := exec.Command(name, args...)
-
-	// Set up input from previous command if not the first
-	if cmdIndex > 0 {
-		prevChannel := channels[cmdIndex-1].GetChannel()
-		channelInput := input.NewChannelInput(prevChannel)
-		cmd.Stdin = channelInput
+func (pr *PipeRunner) runExternalCommand(index int, cmd *reader.Cmd) error {
+	_, ok := pr.repl.CmdExist(cmd.Command)
+	if !ok {
+		return fmt.Errorf("%s: command not found", cmd.Command)
 	}
 
-	// Set up output
-	if cmdIndex < len(channels) {
-		// Not the last command, pipe output to next command
-		stdoutPipe, err := cmd.StdoutPipe()
-		if err != nil {
-			return fmt.Errorf("error creating stdout pipe: %v", err)
-		}
+	execCmd := exec.CommandContext(pr.ctx, cmd.Command, cmd.Args...)
 
-		stderrPipe, err := cmd.StderrPipe()
-		if err != nil {
-			return fmt.Errorf("error creating stderr pipe: %v", err)
-		}
+	if index > 0 {
+		execCmd.Stdin = pr.pipes[index-1]
+	}
 
-		// Start the command
-		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("error starting command: %v", err)
-		}
-
-		// Handle stdout and stderr
-		go func() {
-			repl.GetChannelOutput().WriteStream(stdoutPipe)
-		}()
-
-		go func() {
-			repl.PrintErrorStream(stderrPipe)
-		}()
-
-		// Wait for command to complete
-		if err := cmd.Wait(); err != nil {
-			if _, ok := err.(*exec.ExitError); ok {
-				// Command failed with non-zero exit code, which is normal
-				return nil
-			}
-			return fmt.Errorf("error waiting for command: %v", err)
-		}
-		return nil
+	if index < len(pr.writers) {
+		// Not the last command - pipe to next
+		execCmd.Stdout = pr.writers[index]
+		defer pr.writers[index].Close()
 	} else {
-		// Last command, output to terminal
-		stdoutPipe, err := cmd.StdoutPipe()
+		// Last command - create pipe to terminal
+		stdout, err := execCmd.StdoutPipe()
 		if err != nil {
-			return fmt.Errorf("error creating stdout pipe: %v", err)
+			return fmt.Errorf("failed to create stdout pipe: %v", err)
 		}
-
-		stderrPipe, err := cmd.StderrPipe()
-		if err != nil {
-			return fmt.Errorf("error creating stderr pipe: %v", err)
-		}
-
-		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("error starting command: %v", err)
-		}
-
-		var wg sync.WaitGroup
-		wg.Add(2)
 
 		go func() {
-			defer wg.Done()
-			repl.GetOutput().WriteStream(stdoutPipe)
+			osw := &OutputStreamWriter{output: pr.repl.GetOutput()}
+			io.Copy(osw, stdout)
 		}()
+	}
 
-		go func() {
-			defer wg.Done()
-			repl.GetErrorOutput().WriteStream(stderrPipe)
-		}()
+	// Set up stderr (always goes to terminal)
+	stderr, err := execCmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stderr pipe: %v", err)
+	}
 
-		wg.Wait()
-		if err := cmd.Wait(); err != nil {
-			if _, ok := err.(*exec.ExitError); ok {
-				// Command failed with non-zero exit code, which is normal
-				return nil
+	go func() {
+		pr.repl.GetErrorOutput().WriteStream(stderr)
+	}()
+
+	// Start and wait for command
+	if err := execCmd.Start(); err != nil {
+		return fmt.Errorf("failed to start command: %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- execCmd.Wait()
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
+					if status.Signal() == syscall.SIGPIPE {
+						return nil // SIGPIPE is normal
+					}
+				}
 			}
-			return fmt.Errorf("error waiting for command: %v", err)
+			return err
 		}
 		return nil
+	case <-pr.ctx.Done():
+		if execCmd.Process != nil {
+			execCmd.Process.Kill()
+		}
+		<-done // Wait for process to actually exit
+		return nil
 	}
+}
+
+func (pr *PipeRunner) monitor() {
+	// Give commands a moment to start
+	time.Sleep(10 * time.Millisecond)
+
+	// Monitor for early completion
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-pr.ctx.Done():
+			return
+		case <-ticker.C:
+			// Check if any downstream processes have exited
+			continue
+		}
+	}
+}
+
+func (pr *PipeRunner) cleanup() {
+	pr.cancel()
+
+	for _, writer := range pr.writers {
+		if writer != nil {
+			writer.Close()
+		}
+	}
+
+	// Give processes time to clean up
+	time.Sleep(50 * time.Millisecond)
+}
+
+func (pr *PipeRunner) createCommandRepl(cmdOutput output.Output) *cmds.Repl {
+	newRepl := &cmds.Repl{}
+	*newRepl = *pr.repl
+
+	newRepl.SetOutput(cmdOutput)
+	return newRepl
+}
+
+func isBuiltinCommandV2(command string) bool {
+	builtins := map[string]bool{
+		"echo":    true,
+		"history": true,
+		"type":    true,
+		"pwd":     true,
+		"cd":      true,
+		"exit":    true,
+	}
+	return builtins[command]
 }

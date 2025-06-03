@@ -87,3 +87,10 @@ func (ci *ChannelInput) ReadString() (string, error) {
 
 	return strings.Join(chunks, ""), nil
 }
+
+// ConsumeAllChannelInput drains all data from a channel to prevent pipeline hanging
+func ConsumeAllChannelInput(channel <-chan []byte) {
+	for range channel {
+		// Simply consume all data without processing
+	}
+}

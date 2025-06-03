@@ -48,7 +48,7 @@ func main() {
 		}
 
 		// Handle both single commands and pipes uniformly
-		err = runner.RunPipeCmds(repl, cmdPipe)
+		err = runner.RunPipeCmdsV2(repl, cmdPipe)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v: %v\n", cmdPipe.Cmds[0].Command, err)
 		}
